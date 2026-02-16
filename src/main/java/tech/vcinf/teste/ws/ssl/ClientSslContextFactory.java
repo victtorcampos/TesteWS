@@ -1,4 +1,4 @@
-package tech.vcinf.teste.ws.ssl;
+package tech.vcinf.teste.ws.Ssl;
 
 import tech.vcinf.teste.ws.cert.ClientCertificateConfig;
 import tech.vcinf.teste.ws.cert.PfxConfig;

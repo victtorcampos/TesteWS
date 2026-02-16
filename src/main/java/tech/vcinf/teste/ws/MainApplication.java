@@ -5,10 +5,10 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import tech.vcinf.teste.ws.Ssl.ClientSslContextFactory;
 import tech.vcinf.teste.ws.cert.PfxConfig;
 import tech.vcinf.teste.ws.cert.WindowsMyConfig;
 import tech.vcinf.teste.ws.client.StatusClient;
-import tech.vcinf.teste.ws.ssl.ClientSslContextFactory;
 
 import javax.net.ssl.SSLContext;
 import java.util.logging.Level;
