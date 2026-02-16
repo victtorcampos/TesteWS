@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-MainApplication<demo-teste-ws>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "tech.vcinf.teste.ws.MainApplication",
+            "projectName": "demo-teste-ws",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
