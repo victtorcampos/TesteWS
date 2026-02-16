@@ -7,7 +7,7 @@ Objetivo: implementar uma camada simples de criação de `SSLContext` que suport
 ## 1. Diagnóstico da base atual
 
 - [ ] Revisar código existente do TesteWS e identificar pontos onde TLS/SSL é configurado (se houver).
-- [ ] Documentar estado atual: se há uso de `HttpsURLConnection`, `HttpClient` (Java 11+) ou outra lib.
+- [ ] Documentar estado atual: se há uso de `HttpsURLConnection`, `HttpClient` (Java 11+).
 - [ ] Mapear onde o certificado hoje é carregado (ou se ainda não é carregado).
 
 Resultado esperado: visão clara de onde o `SSLContext` será plugado.
