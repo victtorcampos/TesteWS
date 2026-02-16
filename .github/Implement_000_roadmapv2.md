@@ -35,8 +35,8 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
 - [✅] Deletar pacote `test/` (2 arquivos)
 
 ### Fase 4: Ajustar imports
-- [ ] Remover imports de classes internas deletadas
-- [ ] Adicionar imports do JDK necessários
+- [✅] Remover imports de classes internas deletadas
+- [✅] Adicionar imports do JDK necessários
 
 ### Fase 5: Validar e testar
 - [ ] Compilar: `mvn clean compile`
@@ -44,4 +44,4 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
 
 ---
 
-> ✅ **Fase 3 CONCLUÍDA.** Arquivos obsoletos removidos.
+> ✅ **Fase 4 CONCLUÍDA.** Imports ajustados.
