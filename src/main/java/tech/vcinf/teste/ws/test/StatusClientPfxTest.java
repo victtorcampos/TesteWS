@@ -1,8 +1,9 @@
 package tech.vcinf.teste.ws.test;
 
+import tech.vcinf.teste.ws.Ssl.ClientSslContextFactory;
 import tech.vcinf.teste.ws.cert.PfxConfig;
 import tech.vcinf.teste.ws.client.StatusClient;
-import tech.vcinf.teste.ws.ssl.ClientSslContextFactory;
+
 
 import javax.net.ssl.SSLContext;
 import java.util.logging.ConsoleHandler;
@@ -70,21 +71,7 @@ public class StatusClientPfxTest {
     }
     
     private static String criarXmlConsultaStatus() {
-        return """<?xml version="1.0" encoding="UTF-8"?>
-<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" 
-                 xmlns:nfe="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4">
-  <soap12:Body>
-    <nfe:nfeStatusServicoNF>
-      <nfeDadosMsg>
-        <consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
-          <tpAmb>2</tpAmb>
-          <cUF>51</cUF>
-          <xServ>STATUS</xServ>
-        </consStatServ>
-      </nfeDadosMsg>
-    </nfe:nfeStatusServicoNF>
-  </soap12:Body>
-</soap12:Envelope>""";
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
     }
     
     private static void configurarLog() {
