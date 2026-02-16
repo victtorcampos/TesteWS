@@ -11,121 +11,122 @@ import tech.vcinf.teste.ws.client.StatusClient;
 import tech.vcinf.teste.ws.ssl.ClientSslContextFactory;
 
 import javax.net.ssl.SSLContext;
-import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 @SpringBootApplication
 public class MainApplication implements ApplicationRunner {
 	private static final Logger logger = Logger.getLogger(MainApplication.class.getName());
 
+	// ========== CONFIGURAÇÕES DE TESTE (HARDCODED) ==========
+	
+	// Escolha qual tipo de teste executar: "PFX" ou "WINDOWS_MY"
+	private static final String TIPO_TESTE = "PFX"; // ou "WINDOWS_MY"
+	
+	// Configurações para PFX
+	private static final String PFX_PATH = "C:\\certificado\\407.pfx";
+	private static final String PFX_PASSWORD = "12345";
+	
+	// Configurações para Windows Store
+	private static final String WINDOWS_THUMBPRINT = "C48514B5EDF842D34C322A1AAFAF8F6FDA3117A7";
+	
+	// Endpoint de teste
+	private static final String ENDPOINT = "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeStatusServico4";
+	
+	// =========================================================
+
 	@Override
 	public void run(ApplicationArguments args) {
-		configurarLog();
+		logger.info("=".repeat(50));
+		logger.info("TESTE DE CERTIFICADO mTLS - " + TIPO_TESTE);
+		logger.info("=".repeat(50));
+		logger.info("");
 		
-		logger.info("========================================");
-		logger.info("=== TESTE DE CERTIFICADOS mTLS ===");
-		logger.info("========================================");
-		
-		// Detectar qual tipo de teste executar baseado nos parâmetros
-		String pfxPath = System.getProperty("pfx.path");
-		String pfxPassword = System.getProperty("pfx.password");
-		String thumbprint = System.getProperty("cert.thumbprint");
-		String endpoint = System.getProperty("endpoint", 
-			"https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeStatusServico4");
-		
-		if (pfxPath != null && pfxPassword != null) {
-			testarPfx(pfxPath, pfxPassword, endpoint);
-		} else if (thumbprint != null) {
-			testarWindowsMy(thumbprint, endpoint);
+		if ("PFX".equalsIgnoreCase(TIPO_TESTE)) {
+			testarPfx();
+		} else if ("WINDOWS_MY".equalsIgnoreCase(TIPO_TESTE)) {
+			testarWindowsMy();
 		} else {
-			logger.severe("❌ Nenhum parâmetro de certificado fornecido!");
-			logger.severe("");
-			logger.severe("Para testar com PFX:");
-			logger.severe("  mvn spring-boot:run -Dpfx.path=C:\\\\certificado\\\\407.pfx -Dpfx.password=12345");
-			logger.severe("");
-			logger.severe("Para testar com Windows Store:");
-			logger.severe("  mvn spring-boot:run -Dcert.thumbprint=C48514B5EDF842D34C322A1AAFAF8F6FDA3117A7");
-			logger.severe("");
+			logger.severe("❌ TIPO_TESTE inválido: " + TIPO_TESTE);
+			logger.severe("Use 'PFX' ou 'WINDOWS_MY'");
 		}
 	}
 	
-	private void testarPfx(String pfxPath, String pfxPassword, String endpoint) {
+	private void testarPfx() {
 		try {
-			logger.info("");
-			logger.info("=== TESTE PFX ===");
-			logger.info("Path: " + pfxPath);
-			logger.info("Endpoint: " + endpoint);
+			logger.info("📝 Configuração:");
+			logger.info("  Arquivo: " + PFX_PATH);
+			logger.info("  Endpoint: " + ENDPOINT);
 			logger.info("");
 			
-			// Criar configuração
-			PfxConfig config = new PfxConfig(pfxPath, pfxPassword.toCharArray());
+			// 1. Criar configuração
+			PfxConfig config = new PfxConfig(PFX_PATH, PFX_PASSWORD.toCharArray());
 			
-			// Criar SSLContext
-			logger.info("Criando SSLContext do arquivo PFX...");
+			// 2. Criar SSLContext
+			logger.info("🔑 Criando SSLContext do arquivo PFX...");
 			SSLContext sslContext = ClientSslContextFactory.from(config);
-			logger.info("✅ SSLContext criado com sucesso!");
+			logger.info("✅ SSLContext criado!");
 			logger.info("");
 			
-			// Criar cliente e executar consulta
-			StatusClient client = new StatusClient(sslContext);
-			String xmlBody = criarXmlConsultaStatus();
-			
-			logger.info("Enviando consulta de status...");
-			String resposta = client.consultarStatus(endpoint, xmlBody);
-			
-			logger.info("✅ RESPOSTA RECEBIDA COM SUCESSO!");
-			logger.info("Tamanho: " + resposta.length() + " bytes");
-			logger.fine("Resposta: " + resposta);
-			logger.info("");
-			logger.info("✅ TESTE PFX CONCLUÍDO COM SUCESSO!");
+			// 3. Executar consulta
+			executarConsulta(sslContext);
 			
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "❌ TESTE PFX FALHOU", e);
 		}
 	}
 	
-	private void testarWindowsMy(String thumbprint, String endpoint) {
+	private void testarWindowsMy() {
 		try {
 			// Verificar SO
 			String os = System.getProperty("os.name").toLowerCase();
 			if (!os.contains("win")) {
-				logger.severe("❌ Teste Windows-MY só pode rodar em Windows!");
-				logger.severe("Sistema operacional detectado: " + os);
+				logger.severe("❌ Teste Windows-MY só funciona em Windows!");
+				logger.severe("SO detectado: " + os);
 				return;
 			}
 			
-			logger.info("");
-			logger.info("=== TESTE WINDOWS-MY ===");
-			logger.info("Thumbprint: " + thumbprint);
-			logger.info("Endpoint: " + endpoint);
+			logger.info("📝 Configuração:");
+			logger.info("  Thumbprint: " + WINDOWS_THUMBPRINT);
+			logger.info("  Endpoint: " + ENDPOINT);
 			logger.info("");
 			
-			// Criar configuração
-			WindowsMyConfig config = new WindowsMyConfig(thumbprint);
+			// 1. Criar configuração
+			WindowsMyConfig config = new WindowsMyConfig(WINDOWS_THUMBPRINT);
 			
-			// Criar SSLContext
-			logger.info("Criando SSLContext do Windows Certificate Store...");
+			// 2. Criar SSLContext
+			logger.info("🔑 Criando SSLContext do Windows Store...");
 			SSLContext sslContext = ClientSslContextFactory.from(config);
-			logger.info("✅ SSLContext criado com sucesso!");
+			logger.info("✅ SSLContext criado!");
 			logger.info("");
 			
-			// Criar cliente e executar consulta
-			StatusClient client = new StatusClient(sslContext);
-			String xmlBody = criarXmlConsultaStatus();
-			
-			logger.info("Enviando consulta de status...");
-			String resposta = client.consultarStatus(endpoint, xmlBody);
-			
-			logger.info("✅ RESPOSTA RECEBIDA COM SUCESSO!");
-			logger.info("Tamanho: " + resposta.length() + " bytes");
-			logger.fine("Resposta: " + resposta);
-			logger.info("");
-			logger.info("✅ TESTE WINDOWS-MY CONCLUÍDO COM SUCESSO!");
+			// 3. Executar consulta
+			executarConsulta(sslContext);
 			
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "❌ TESTE WINDOWS-MY FALHOU", e);
+		}
+	}
+	
+	private void executarConsulta(SSLContext sslContext) {
+		try {
+			StatusClient client = new StatusClient(sslContext);
+			String xmlBody = criarXmlConsultaStatus();
+			
+			logger.info("🚀 Enviando consulta de status...");
+			String resposta = client.consultarStatus(ENDPOINT, xmlBody);
+			
+			logger.info("");
+			logger.info("✅ SUCESSO!");
+			logger.info("  Tamanho da resposta: " + resposta.length() + " bytes");
+			logger.info("");
+			logger.info("=".repeat(50));
+			logger.info("🎉 TESTE CONCLUÍDO COM SUCESSO!");
+			logger.info("=".repeat(50));
+			
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "❌ Falha na consulta", e);
+			throw e;
 		}
 	}
 	
@@ -145,21 +146,6 @@ public class MainApplication implements ApplicationRunner {
     </nfe:nfeStatusServicoNF>
   </soap12:Body>
 </soap12:Envelope>""";
-	}
-	
-	private void configurarLog() {
-		Logger rootLogger = Logger.getLogger("");
-		rootLogger.setLevel(Level.INFO);
-		
-		// Remover handlers existentes
-		for (var handler : rootLogger.getHandlers()) {
-			rootLogger.removeHandler(handler);
-		}
-		
-		ConsoleHandler handler = new ConsoleHandler();
-		handler.setLevel(Level.ALL);
-		handler.setFormatter(new SimpleFormatter());
-		rootLogger.addHandler(handler);
 	}
 
 	public static void main(String[] args) {
