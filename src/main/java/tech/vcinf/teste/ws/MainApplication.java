@@ -29,20 +29,20 @@ public class MainApplication implements ApplicationRunner {
 	private static final Logger logger = Logger.getLogger(MainApplication.class.getName());
 
 	// ========== CONFIGURAÇÕES DE TESTE (HARDCODED) ==========
-	
+
 	// Escolha qual tipo de teste executar: "PFX" ou "WINDOWS_MY"
 	private static final String TIPO_TESTE = "PFX"; // ou "WINDOWS_MY"
-	
+
 	// Configurações para PFX
 	private static final String PFX_PATH = "C:\\\\certificado\\\\407.pfx";
 	private static final String PFX_PASSWORD = "12345";
-	
+
 	// Configurações para Windows Store
 	private static final String WINDOWS_THUMBPRINT = "C48514B5EDF842D34C322A1AAFAF8F6FDA3117A7";
-	
+
 	// Endpoint de teste
 	private static final String ENDPOINT = "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeStatusServico4";
-	
+
 	// =========================================================
 
 	@Override
@@ -51,7 +51,7 @@ public class MainApplication implements ApplicationRunner {
 		logger.info("TESTE DE CERTIFICADO mTLS - " + TIPO_TESTE);
 		logger.info("=".repeat(50));
 		logger.info("");
-		
+
 		SSLContext sslContext = null;
 
 		if ("PFX".equalsIgnoreCase(TIPO_TESTE)) {
@@ -66,7 +66,7 @@ public class MainApplication implements ApplicationRunner {
 			logger.severe("❌ Não foi possível criar o SSLContext. Verifique o TIPO_TESTE.");
 		}
 	}
-	
+
 	// ========== MÉTODOS DE SSL (FASE 1) ==========
 
 	private SSLContext criarSslContextPfx(String path, String senha) {
@@ -76,16 +76,16 @@ public class MainApplication implements ApplicationRunner {
 			try (InputStream in = Files.newInputStream(Path.of(path))) {
 				ks.load(in, senha.toCharArray());
 			}
-			
+
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, senha.toCharArray());
-			
+
 			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 			tmf.init((KeyStore) null);
-			
+
 			SSLContext ctx = SSLContext.getInstance("TLS");
 			ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-			
+
 			logger.info("✅ SSLContext PFX criado!");
 			return ctx;
 		} catch (Exception e) {
@@ -105,19 +105,20 @@ public class MainApplication implements ApplicationRunner {
 			logger.info("🔑 Criando SSLContext do Windows Store: " + thumbprint);
 			KeyStore ks = KeyStore.getInstance("Windows-MY");
 			ks.load(null, null);
-			
+
 			String alias = buscarAliasPorThumbprint(ks, thumbprint);
-			if (alias == null) throw new IllegalStateException("Thumbprint não encontrado");
-			
+			if (alias == null)
+				throw new IllegalStateException("Thumbprint não encontrado");
+
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, null);
-			
+
 			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 			tmf.init((KeyStore) null);
-			
+
 			SSLContext ctx = SSLContext.getInstance("TLS");
 			ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-			
+
 			logger.info("✅ SSLContext Windows-MY criado!");
 			return ctx;
 		} catch (Exception e) {
@@ -142,27 +143,28 @@ public class MainApplication implements ApplicationRunner {
 
 	private String bytesToHex(byte[] bytes) {
 		StringBuilder sb = new StringBuilder();
-		for (byte b : bytes) sb.append(String.format("%02X", b));
+		for (byte b : bytes)
+			sb.append(String.format("%02X", b));
 		return sb.toString();
 	}
-	
+
 	// ========== MÉTODOS HTTP (FASE 2) ==========
 
 	private void enviarConsultaStatus(SSLContext sslContext, String endpoint, String xml) {
 		try {
 			logger.info("🚀 Enviando consulta para: " + endpoint);
-			
+
 			HttpClient client = HttpClient.newBuilder()
-				.sslContext(sslContext)
-				.connectTimeout(Duration.ofSeconds(30))
-				.build();
+					.sslContext(sslContext)
+					.connectTimeout(Duration.ofSeconds(30))
+					.build();
 
 			HttpRequest request = HttpRequest.newBuilder()
-				.uri(URI.create(endpoint))
-				.header("Content-Type", "application/soap+xml; charset=utf-8")
-				.POST(HttpRequest.BodyPublishers.ofString(xml, StandardCharsets.UTF_8))
-				.timeout(Duration.ofSeconds(60))
-				.build();
+					.uri(URI.create(endpoint))
+					.header("Content-Type", "application/soap+xml; charset=utf-8")
+					.POST(HttpRequest.BodyPublishers.ofString(xml, StandardCharsets.UTF_8))
+					.timeout(Duration.ofSeconds(60))
+					.build();
 
 			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -174,7 +176,7 @@ public class MainApplication implements ApplicationRunner {
 				logger.warning("⚠️ Status diferente de 200: " + response.statusCode());
 				logger.warning(response.body());
 			}
-			
+
 			logger.info("=".repeat(50));
 			logger.info("🎉 TESTE CONCLUÍDO!");
 			logger.info("=".repeat(50));
@@ -183,23 +185,9 @@ public class MainApplication implements ApplicationRunner {
 			logger.log(Level.SEVERE, "❌ Falha na comunicação HTTP", e);
 		}
 	}
-	
+
 	private String criarXmlConsultaStatus() {
-		return """<?xml version="1.0" encoding="UTF-8"?>
-<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" 
-                 xmlns:nfe="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4">
-  <soap12:Body>
-    <nfe:nfeStatusServicoNF>
-      <nfeDadosMsg>
-        <consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
-          <tpAmb>2</tpAmb>
-          <cUF>51</cUF>
-          <xServ>STATUS</xServ>
-        </consStatServ>
-      </nfeDadosMsg>
-    </nfe:nfeStatusServicoNF>
-  </soap12:Body>
-</soap12:Envelope>""";
+		return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
 	}
 
 	public static void main(String[] args) {
