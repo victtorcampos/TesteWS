@@ -29,10 +29,10 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
   - [✅] `enviarConsultaStatus()` (cria HttpClient inline, envia POST, retorna body)
 
 ### Fase 3: Remover pacotes desnecessários
-- [ ] Deletar pacote `cert/` (4 arquivos)
-- [ ] Deletar pacote `ssl/` (1 arquivo)
-- [ ] Deletar pacote `client/` (1 arquivo)
-- [ ] Deletar pacote `test/` (2 arquivos)
+- [✅] Deletar pacote `cert/` (4 arquivos)
+- [✅] Deletar pacote `ssl/` (1 arquivo)
+- [✅] Deletar pacote `client/` (1 arquivo)
+- [✅] Deletar pacote `test/` (2 arquivos)
 
 ### Fase 4: Ajustar imports
 - [ ] Remover imports de classes internas deletadas
@@ -44,4 +44,4 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
 
 ---
 
-> ✅ **Fase 2 CONCLUÍDA.** Lógica HTTP integrada ao MainApplication.
+> ✅ **Fase 3 CONCLUÍDA.** Arquivos obsoletos removidos.
