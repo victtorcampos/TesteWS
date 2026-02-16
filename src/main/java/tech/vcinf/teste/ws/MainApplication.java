@@ -5,17 +5,21 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import tech.vcinf.teste.ws.client.StatusClient;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.Enumeration;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -57,7 +61,7 @@ public class MainApplication implements ApplicationRunner {
 		}
 
 		if (sslContext != null) {
-			executarConsulta(sslContext);
+			enviarConsultaStatus(sslContext, ENDPOINT, criarXmlConsultaStatus());
 		} else {
 			logger.severe("❌ Não foi possível criar o SSLContext. Verifique o TIPO_TESTE.");
 		}
@@ -142,26 +146,41 @@ public class MainApplication implements ApplicationRunner {
 		return sb.toString();
 	}
 	
-	// =============================================
+	// ========== MÉTODOS HTTP (FASE 2) ==========
 
-	private void executarConsulta(SSLContext sslContext) {
+	private void enviarConsultaStatus(SSLContext sslContext, String endpoint, String xml) {
 		try {
-			StatusClient client = new StatusClient(sslContext);
-			String xmlBody = criarXmlConsultaStatus();
+			logger.info("🚀 Enviando consulta para: " + endpoint);
 			
-			logger.info("🚀 Enviando consulta de status...");
-			String resposta = client.consultarStatus(ENDPOINT, xmlBody);
+			HttpClient client = HttpClient.newBuilder()
+				.sslContext(sslContext)
+				.connectTimeout(Duration.ofSeconds(30))
+				.build();
+
+			HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(endpoint))
+				.header("Content-Type", "application/soap+xml; charset=utf-8")
+				.POST(HttpRequest.BodyPublishers.ofString(xml, StandardCharsets.UTF_8))
+				.timeout(Duration.ofSeconds(60))
+				.build();
+
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+			logger.info("📥 Resposta recebida: HTTP " + response.statusCode());
+			if (response.statusCode() == 200) {
+				logger.info("✅ SUCESSO!");
+				logger.info("Tamanho: " + response.body().length() + " bytes");
+			} else {
+				logger.warning("⚠️ Status diferente de 200: " + response.statusCode());
+				logger.warning(response.body());
+			}
 			
-			logger.info("");
-			logger.info("✅ SUCESSO!");
-			logger.info("  Tamanho da resposta: " + resposta.length() + " bytes");
-			logger.info("");
 			logger.info("=".repeat(50));
-			logger.info("🎉 TESTE CONCLUÍDO COM SUCESSO!");
+			logger.info("🎉 TESTE CONCLUÍDO!");
 			logger.info("=".repeat(50));
-			
+
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "❌ Falha na consulta", e);
+			logger.log(Level.SEVERE, "❌ Falha na comunicação HTTP", e);
 		}
 	}
 	

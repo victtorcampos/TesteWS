@@ -25,8 +25,8 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
   - [✅] `bytesToHex()`
 
 ### Fase 2: Consolidar lógica HTTP
-- [ ] Mover lógica de `StatusClient` para `MainApplication`:
-  - [ ] `enviarConsultaStatus()` (cria HttpClient inline, envia POST, retorna body)
+- [✅] Mover lógica de `StatusClient` para `MainApplication`:
+  - [✅] `enviarConsultaStatus()` (cria HttpClient inline, envia POST, retorna body)
 
 ### Fase 3: Remover pacotes desnecessários
 - [ ] Deletar pacote `cert/` (4 arquivos)
@@ -44,4 +44,4 @@ Consolidar **TODA** a implementação de certificado mTLS em um **único arquivo
 
 ---
 
-> ✅ **Fase 1 CONCLUÍDA.** Lógica de SSL integrada ao MainApplication.
+> ✅ **Fase 2 CONCLUÍDA.** Lógica HTTP integrada ao MainApplication.
