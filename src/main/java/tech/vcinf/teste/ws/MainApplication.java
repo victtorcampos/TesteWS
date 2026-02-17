@@ -520,4 +520,5 @@ public class MainApplication implements ApplicationRunner {
         handler.setLevel(Level.INFO);
         root.addHandler(handler);
     }
+
 }
