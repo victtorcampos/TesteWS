@@ -12,8 +12,11 @@ import java.net.URL;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CRLException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
@@ -21,11 +24,13 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.logging.Logger;
 
+import javax.xml.crypto.MarshalException;
 import javax.xml.crypto.dsig.*;
 import javax.xml.crypto.dsig.dom.DOMSignContext;
 import javax.xml.crypto.dsig.keyinfo.*;
 import javax.xml.crypto.dsig.spec.*;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -39,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 @SpringBootApplication
 public class MainApplication implements ApplicationRunner {
@@ -86,9 +92,8 @@ public class MainApplication implements ApplicationRunner {
         Files.writeString(caminhoDestino, xmlAssinado, StandardCharsets.UTF_8);
         log.info("Snippet do XML Assinado: " + xmlAssinado.substring(0, Math.min(xmlAssinado.length(), 200)));
         log.info("XML assinado e salvo em: " + caminhoDestino.toAbsolutePath());
-		
-		
-		String xmlReinfBruto = getXmlEfdReinf();
+
+        String xmlReinfBruto = getXmlEfdReinf();
         idDoc = extrairIdDocumento(xmlReinfBruto); // Extrai o ID para usar no nome do arquivo
         xmlAssinado = assinarXml_pfx(xmlReinfBruto, PFX_PATH, PFX_PASS);
         nomeArquivo = idDoc + ".xml";
@@ -108,12 +113,10 @@ public class MainApplication implements ApplicationRunner {
         // Lógica de Detecção de Documento e Algoritmo
         if (xml.contains("<consStatServ") || xml.contains("<infNFe") || xml.contains("<infCte")) {
             // NFe, CTe, Status usam SHA1 e o ID geralmente começa com "ID", "NFe" ou "CTe"
-            String id = extrairIdDocumento(xml);
-            return assinarDocXmlSHA1(xml, id, privateKey, cert);
+            return assinarDocXmlSHA1(xml, privateKey, cert);
         } else if (xml.contains("<Reinf") || xml.contains("<infNFSe")) {
             // Reinf e NFSe Nacional usam SHA256
-            String id = extrairIdDocumento(xml);
-            return assinarDocXmlSHA256(xml, id, privateKey, cert);
+            return assinarDocXmlSHA256(xml, privateKey, cert);
         }
 
         throw new IllegalArgumentException("Tipo de XML desconhecido para assinatura automática.");
@@ -299,7 +302,7 @@ public class MainApplication implements ApplicationRunner {
     }
 
     private String getXmlCTe() {
-        return "<cteProc xmlns=\"http://www.portalfiscal.inf.br/cte\" versao=\"4.00\"><CTe xmlns=\"http://www.portalfiscal.inf.br/cte\"><infCte Id=\"CTe51260246756217000127570010000077491584547169\" versao=\"4.00\"><ide><cUF>51</cUF><cCT>58454716</cCT><CFOP>5356</CFOP><natOp>SERV. DE TRANSPORTE</natOp><mod>57</mod><serie>1</serie><nCT>7749</nCT><dhEmi>2026-02-11T10:40:00-04:00</dhEmi><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>9</cDV><tpAmb>1</tpAmb><tpCTe>0</tpCTe><procEmi>0</procEmi><verProc>MaisFrete_v4.00_RT</verProc><cMunEnv>5107925</cMunEnv><xMunEnv>SORRISO</xMunEnv><UFEnv>MT</UFEnv><modal>01</modal><tpServ>0</tpServ><cMunIni>5107925</cMunIni><xMunIni>SORRISO</xMunIni><UFIni>MT</UFIni><cMunFim>5106802</cMunFim><xMunFim>PORTO DOS GAUCHOS</xMunFim><UFFim>MT</UFFim><retira>1</retira><indIEToma>1</indIEToma><toma3><toma>3</toma></toma3></ide><compl><Entrega><noPeriodo><tpPer>4</tpPer><dIni>2026-02-11</dIni><dFim>2026-02-13</dFim></noPeriodo><semHora><tpHor>0</tpHor></semHora></Entrega><origCalc>SORRISO</origCalc><destCalc>PORTO DOS GAUCHOS</destCalc><xObs>TRANSPORTE SUBCONTRATADO COM GIOVANI SANTINI MARIANI (RNTRC 57456699), CPF/CNPJ 034.988.111/18, ENDERECO AVENIDA DAS NACOES, SN, BAIRRO JARDIM DOS IPES, SORRISO/MT, CEP 78890-421, PROPRIETARIO DO VEICULO MARCA VOLVO, PLACA OBE6J62 - RENAVAM 00998493279, UF MT, MOTORISTA ROMILDO EGEA MARTINS, CPF 010.940.641/90, CONJUNTO QCW0E27/QCW0I87/QCW0J57|INICIO VIAGEM: 11/02/2026 11:40|SEGURO CONTRATADO COM HDI SEGUROS S.A. (CNPJ 29.980.158/0082-12), APOLICE DE SEGURO: 549420250006492/559420250003407</xObs><ObsCont xCampo=\"PLACA\"><xTexto>OBE6J62</xTexto></ObsCont><ObsCont xCampo=\"$segCobAd\"><xTexto>$RCF</xTexto></ObsCont><ObsCont xCampo=\"EM CASO DE ACIDENTE\"><xTexto>LIGUE PARA (11)5508-1300.</xTexto></ObsCont></compl><emit><CNPJ>46756217000127</CNPJ><IE>139446427</IE><xNome>TRANSPORTADORA AL LTDA</xNome><enderEmit><xLgr>AVENIDA PERIMETRAL SUDESTE</xLgr><nro>8245</nro><xCpl>SALA 12</xCpl><xBairro>SAO CRISTOVAO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78894280</CEP><UF>MT</UF><fone>66981155960</fone></enderEmit><CRT>3</CRT></emit><rem><CNPJ>30463781000111</CNPJ><IE>137244436</IE><xNome>LAURENCE BORGES RAMALHO</xNome><fone>66999999995</fone><enderReme><xLgr>AV IDEMAR RIEDI</xLgr><nro>10024</nro><xBairro>INDUSTRIAL 1 ETAPA</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78890000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderReme></rem><exped><CNPJ>30463781000111</CNPJ><IE>137244436</IE><xNome>LAURENCE BORGES RAMALHO</xNome><fone>66999999995</fone><enderExped><xLgr>AV IDEMAR RIEDI</xLgr><nro>10024</nro><xBairro>INDUSTRIAL 1 ETAPA</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78890000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderExped></exped><receb><CPF>03498811118</CPF><IE>138295980</IE><xNome>GIOVANI SANTINI MARIANI</xNome><fone>66999796525</fone><enderReceb><xLgr>FAZENDA SANTA RITA TRAVESSA 13</xLgr><nro>SN</nro><xBairro>ZONA RURAL</xBairro><cMun>5106802</cMun><xMun>PORTO DOS GAUCHOS</xMun><CEP>78560000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderReceb><email>alfaturamento@transportadoraal.com.br</email></receb><dest><CPF>03498811118</CPF><IE>138295980</IE><xNome>GIOVANI SANTINI MARIANI</xNome><fone>66999796525</fone><enderDest><xLgr>FAZENDA SANTA RITA TRAVESSA 13</xLgr><nro>SN</nro><xBairro>ZONA RURAL</xBairro><cMun>5106802</cMun><xMun>PORTO DOS GAUCHOS</xMun><CEP>78560000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><email>alfaturamento@transportadoraal.com.br</email></dest><vPrest><vTPrest>3650.00</vTPrest><vRec>3650.00</vRec><Comp><xNome>FRETE VALOR</xNome><vComp>3524.00</vComp></Comp><Comp><xNome>PEDAGIO</xNome><vComp>126.00</vComp></Comp></vPrest><imp><ICMS><ICMS45><CST>51</CST></ICMS45></ICMS><infAdFisco>CND N 0061450867 NUMERO DE AUTENTICACAO: TBTBLLA2MLUKB22T  CERTIDAO VALIDA ATE:  02/04/2026.</infAdFisco><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS><vBC>3312.37</vBC><gIBSUF><pIBSUF>0.1000</pIBSUF><vIBSUF>3.31</vIBSUF></gIBSUF><gIBSMun><pIBSMun>0.0000</pIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun><vIBS>3.31</vIBS><gCBS><pCBS>0.9000</pCBS><vCBS>29.81</vCBS></gCBS></gIBSCBS></IBSCBS><vTotDFe>3650.00</vTotDFe></imp><infCTeNorm><infCarga><vCarga>50000.00</vCarga><proPred>FEIJAO CAUPI</proPred><infQ><cUnid>01</cUnid><tpMed>PESO BRUTO</tpMed><qCarga>25000.0000</qCarga></infQ><infQ><cUnid>03</cUnid><tpMed>GRANEL</tpMed><qCarga>25.0000</qCarga></infQ><vCargaAverb>50000.00</vCargaAverb></infCarga><infDoc><infNFe><chave>51260230463781000111550010000014851010013675</chave></infNFe></infDoc><infModal versaoModal=\"4.00\"><rodo><RNTRC>55075133</RNTRC></rodo></infModal></infCTeNorm><autXML><CNPJ>04898488000177</CNPJ></autXML></infCte><infCTeSupl><qrCodCTe>https://www.sefaz.mt.gov.br/cte/qrcode?chCTe=51260246756217000127570010000077491584547169&amp;tpAmb=1</qrCodCTe></infCTeSupl></CTe><protCTe versao=\"4.00\"><infProt><tpAmb>1</tpAmb><verAplic>MT150423003</verAplic><chCTe>51260246756217000127570010000077491584547169</chCTe><dhRecbto>2026-02-11T10:45:37-04:00</dhRecbto><nProt>151260902233243</nProt><digVal>GWrkwrxGfgA8KUtmqv6h7W9cuGs=</digVal><cStat>100</cStat><xMotivo>Autorizado o Uso do CT-e</xMotivo></infProt></protCTe></cteProc>";
+        return "<cteProc xmlns=\"http://www.portalfiscal.inf.br/cte\" versao=\"4.00\"><CTe xmlns=\"http://www.portalfiscal.inf.br/cte\"><infCte Id=\"CTe51260246756217000127570010000077491584547169\" versao=\"4.00\"><ide><cUF>51</cUF><cCT>58454716</cCT><CFOP>5356</CFOP><natOp>SERV. DE TRANSPORTE</natOp><mod>57</mod><serie>1</serie><nCT>7749</nCT><dhEmi>2026-02-11T10:40:00-04:00</dhEmi><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>9</cDV><tpAmb>1</tpAmb><tpCTe>0</tpCTe><procEmi>0</procEmi><verProc>MaisFrete_v4.00_RT</verProc><cMunEnv>5107925</cMunEnv><xMunEnv>SORRISO</xMunEnv><UFEnv>MT</UFEnv><modal>01</modal><tpServ>0</tpServ><cMunIni>5107925</cMunIni><xMunIni>SORRISO</xMunIni><UFIni>MT</UFIni><cMunFim>5106802</cMunFim><xMunFim>PORTO DOS GAUCHOS</xMunFim><UFFim>MT</UFFim><retira>1</retira><indIEToma>1</indIEToma><toma3><toma>3</toma></toma3></ide><compl><Entrega><noPeriodo><tpPer>4</tpPer><dIni>2026-02-11</dIni><dFim>2026-02-13</dFim></noPeriodo><semHora><tpHor>0</tpHor></semHora></Entrega><origCalc>SORRISO</origCalc><destCalc>PORTO DOS GAUCHOS</destCalc><xObs>TRANSPORTE SUBCONTRATADO COM GIOVANI SANTINI MARIANI (RNTRC 57456699), CPF/CNPJ 034.988.111/18, ENDERECO AVENIDA DAS NACOES, SN, BAIRRO JARDIM DOS IPES, SORRISO/MT, CEP 78890-421, PROPRIETARIO DO VEICULO MARCA VOLVO, PLACA OBE6J62 - RENAVAM 00998493279, UF MT, MOTORISTA ROMILDO EGEA MARTINS, CPF 010.940.641/90, CONJUNTO QCW0E27/QCW0I87/QCW0J57|INICIO VIAGEM: 11/02/2026 11:40|SEGURO CONTRATADO COM HDI SEGUROS S.A. (CNPJ 29.980.158/0082-12), APOLICE DE SEGURO: 549420250006492/559420250003407</xObs><ObsCont xCampo=\"PLACA\"><xTexto>OBE6J62</xTexto></ObsCont><ObsCont xCampo=\"\"><xTexto></xTexto></ObsCont><ObsCont xCampo=\"EM CASO DE ACIDENTE\"><xTexto>LIGUE PARA (11)5508-1300.</xTexto></ObsCont></compl><emit><CNPJ>46756217000127</CNPJ><IE>139446427</IE><xNome>TRANSPORTADORA AL LTDA</xNome><enderEmit><xLgr>AVENIDA PERIMETRAL SUDESTE</xLgr><nro>8245</nro><xCpl>SALA 12</xCpl><xBairro>SAO CRISTOVAO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78894280</CEP><UF>MT</UF><fone>66981155960</fone></enderEmit><CRT>3</CRT></emit><rem><CNPJ>30463781000111</CNPJ><IE>137244436</IE><xNome>LAURENCE BORGES RAMALHO</xNome><fone>66999999995</fone><enderReme><xLgr>AV IDEMAR RIEDI</xLgr><nro>10024</nro><xBairro>INDUSTRIAL 1 ETAPA</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78890000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderReme></rem><exped><CNPJ>30463781000111</CNPJ><IE>137244436</IE><xNome>LAURENCE BORGES RAMALHO</xNome><fone>66999999995</fone><enderExped><xLgr>AV IDEMAR RIEDI</xLgr><nro>10024</nro><xBairro>INDUSTRIAL 1 ETAPA</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><CEP>78890000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderExped></exped><receb><CPF>03498811118</CPF><IE>138295980</IE><xNome>GIOVANI SANTINI MARIANI</xNome><fone>66999796525</fone><enderReceb><xLgr>FAZENDA SANTA RITA TRAVESSA 13</xLgr><nro>SN</nro><xBairro>ZONA RURAL</xBairro><cMun>5106802</cMun><xMun>PORTO DOS GAUCHOS</xMun><CEP>78560000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderReceb><email>alfaturamento@transportadoraal.com.br</email></receb><dest><CPF>03498811118</CPF><IE>138295980</IE><xNome>GIOVANI SANTINI MARIANI</xNome><fone>66999796525</fone><enderDest><xLgr>FAZENDA SANTA RITA TRAVESSA 13</xLgr><nro>SN</nro><xBairro>ZONA RURAL</xBairro><cMun>5106802</cMun><xMun>PORTO DOS GAUCHOS</xMun><CEP>78560000</CEP><UF>MT</UF><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><email>alfaturamento@transportadoraal.com.br</email></dest><vPrest><vTPrest>3650.00</vTPrest><vRec>3650.00</vRec><Comp><xNome>FRETE VALOR</xNome><vComp>3524.00</vComp></Comp><Comp><xNome>PEDAGIO</xNome><vComp>126.00</vComp></Comp></vPrest><imp><ICMS><ICMS45><CST>51</CST></ICMS45></ICMS><infAdFisco>CND N 0061450867 NUMERO DE AUTENTICACAO: TBTBLLA2MLUKB22T  CERTIDAO VALIDA ATE:  02/04/2026.</infAdFisco><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS><vBC>3312.37</vBC><gIBSUF><pIBSUF>0.1000</pIBSUF><vIBSUF>3.31</vIBSUF></gIBSUF><gIBSMun><pIBSMun>0.0000</pIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun><vIBS>3.31</vIBS><gCBS><pCBS>0.9000</pCBS><vCBS>29.81</vCBS></gCBS></gIBSCBS></IBSCBS><vTotDFe>3650.00</vTotDFe></imp><infCTeNorm><infCarga><vCarga>50000.00</vCarga><proPred>FEIJAO CAUPI</proPred><infQ><cUnid>01</cUnid><tpMed>PESO BRUTO</tpMed><qCarga>25000.0000</qCarga></infQ><infQ><cUnid>03</cUnid><tpMed>GRANEL</tpMed><qCarga>25.0000</qCarga></infQ><vCargaAverb>50000.00</vCargaAverb></infCarga><infDoc><infNFe><chave>51260230463781000111550010000014851010013675</chave></infNFe></infDoc><infModal versaoModal=\"4.00\"><rodo><RNTRC>55075133</RNTRC></rodo></infModal></infCTeNorm><autXML><CNPJ>04898488000177</CNPJ></autXML></infCte><infCTeSupl><qrCodCTe>https://www.sefaz.mt.gov.br/cte/qrcode?chCTe=51260246756217000127570010000077491584547169&amp;tpAmb=1</qrCodCTe></infCTeSupl></CTe><protCTe versao=\"4.00\"><infProt><tpAmb>1</tpAmb><verAplic>MT150423003</verAplic><chCTe>51260246756217000127570010000077491584547169</chCTe><dhRecbto>2026-02-11T10:45:37-04:00</dhRecbto><nProt>151260902233243</nProt><digVal>GWrkwrxGfgA8KUtmqv6h7W9cuGs=</digVal><cStat>100</cStat><xMotivo>Autorizado o Uso do CT-e</xMotivo></infProt></protCTe></cteProc>";
     }
 
     private String getXmlNFSe() {
@@ -325,89 +328,126 @@ public class MainApplication implements ApplicationRunner {
         }
     }
 
-    public String assinarDocXmlSHA1(String xmlBruto, String id, PrivateKey key, X509Certificate cert) {
-        return executarAssinatura(xmlBruto, id, key, cert, DigestMethod.SHA1, SignatureMethod.RSA_SHA1);
+    public String assinarDocXmlSHA1(String xmlBruto, PrivateKey key, X509Certificate cert) {
+        return executarAssinatura(xmlBruto, key, cert, DigestMethod.SHA1, SignatureMethod.RSA_SHA1);
     }
 
-    public String assinarDocXmlSHA256(String xmlBruto, String id, PrivateKey key, X509Certificate cert) {
-        return executarAssinatura(xmlBruto, id, key, cert,
+    public String assinarDocXmlSHA256(String xmlBruto, PrivateKey key, X509Certificate cert) {
+        return executarAssinatura(xmlBruto, key, cert,
                 "http://www.w3.org/2001/04/xmlenc#sha256",
                 "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256");
     }
 
-    private String executarAssinatura(String xmlBruto, String id, PrivateKey key, X509Certificate cert,
+    private String executarAssinatura(String xmlBruto, PrivateKey key, X509Certificate cert,
             String digestAlg, String sigAlg) {
         try {
-            // 1. Carregar o documento XML
+            // 1. Carregar o documento XML DOMSignContext
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
             Document doc = dbf.newDocumentBuilder().parse(new InputSource(new StringReader(xmlBruto)));
 
             // 2. Localizar o elemento pelo ID (infNFe, infCte, evtFechaEvPer, etc)
-            NodeList nodes = doc.getElementsByTagName("*");
-            Element toSign = null;
-            for (int i = 0; i < nodes.getLength(); i++) {
-                Element el = (Element) nodes.item(i);
-                if (el.getAttribute("Id").equals(id) || el.getAttribute("ID").equals(id)) {
-                    toSign = el;
-                    // Importante: Marcar explicitamente como ID para o validador JSR 105
-                    toSign.setIdAttribute(el.getAttribute("Id").equals(id) ? "Id" : "ID", true);
-                    break;
-                }
-            }
-            if (toSign == null)
-                throw new RuntimeException("ID " + id + " não encontrado no XML.");
+            Element toSign = descobrirElementoParaAssinar(doc);
 
-            // 3. Configurar Contexto e Fábrica
+            String nomeAtributoId = registrarAtributoId(toSign);
+
+            String idValor = toSign.getAttribute(nomeAtributoId);
+
+            // 3. Definição do Algoritmo
+            String digestMethod;
+            String signatureMethod;
+
+            if (toSign.getNodeName().startsWith("evt") || toSign.getNodeName().startsWith("eSocial")) {
+                digestMethod = DigestMethod.SHA256;
+                signatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+            } else {
+                digestMethod = DigestMethod.SHA1;
+                signatureMethod = SignatureMethod.RSA_SHA1;
+            }
+
+            // 4. Configuração da Assinatura
             XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
 
-            // O Signature deve ser inserido como último filho do PAI do elemento assinado
-            // Ex: Se assina <infNFe>, ele entra dentro de <NFe> após o </infNFe>
-			log.info("Elemento a ser assinado: " + toSign.getNodeName() + " com ID: " + id);
-            DOMSignContext dsc;
-			if (xmlBruto.contains("reinf.esocial.gov.br")) {
-				// No Reinf, a assinatura deve estar DENTRO da tag do evento (ex: evtFechaEvPer)
-				// Então o 'parent' deve ser o próprio elemento 'toSign'
-				dsc = new DOMSignContext(key, doc.getDocumentElement());
-			} else {
-				// Na NFe/CTe, a assinatura é IRMÃ da infNFe, dentro da NFe
-				dsc = new DOMSignContext(key, toSign.getParentNode());
-			}
-			//DOMSignContext dsc = new DOMSignContext(key, toSign);
-            //DOMSignContext dsc = new DOMSignContext(key, toSign.getParentNode());
+            // Contexto no PAI do elemento (Irmão do elemento assinado)
+            DOMSignContext dsc = new DOMSignContext(key, toSign.getParentNode());
 
-            // 4. Transformações e Referência
             List<Transform> transforms = new ArrayList<>();
             transforms.add(factory.newTransform(Transform.ENVELOPED, (TransformParameterSpec) null));
             transforms.add(factory.newTransform("http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
                     (TransformParameterSpec) null));
 
-            // 5. Construção da Assinatura
-            Reference ref = factory.newReference("#" + id, factory.newDigestMethod(digestAlg, null), transforms, null,
-                    null);
+            Reference ref = factory.newReference("#" + idValor,
+                    factory.newDigestMethod(digestMethod, null),
+                    transforms, null, null);
 
             SignedInfo si = factory.newSignedInfo(
                     factory.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, (C14NMethodParameterSpec) null),
-                    factory.newSignatureMethod(sigAlg, null),
+                    factory.newSignatureMethod(signatureMethod, null),
                     Collections.singletonList(ref));
 
             KeyInfoFactory kif = factory.getKeyInfoFactory();
             KeyInfo ki = kif.newKeyInfo(Collections.singletonList(kif.newX509Data(Collections.singletonList(cert))));
 
-            // 6. Assinar
+            // 5. Assinar
             XMLSignature signature = factory.newXMLSignature(si, ki);
             signature.sign(dsc);
 
-            // 7. Converter Document de volta para String
+            // 6. Serializar
             Transformer transformer = TransformerFactory.newInstance().newTransformer();
-            // Dica: Não use OMIT_XML_DECLARATION se o XML de entrada já tiver o cabeçalho
+            transformer.setOutputProperty(OutputKeys.INDENT, "no");
+
             StringWriter writer = new StringWriter();
             transformer.transform(new DOMSource(doc), new StreamResult(writer));
 
             return writer.toString();
         } catch (Exception e) {
-            throw new RuntimeException("Falha na assinatura: " + e.getMessage(), e);
+            // Multicatch limpo. Em produção, use logger.error aqui.
+            throw new RuntimeException("Falha crítica na assinatura XML: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Registra o atributo ID e RETORNA o nome dele para uso posterior.
+     */
+    private String registrarAtributoId(Element elemento) {
+        String[] atributosPossiveis = { "id", "Id", "ID" };
+
+        for (String nomeAtributo : atributosPossiveis) {
+            if (elemento.hasAttribute(nomeAtributo)) {
+                elemento.setIdAttribute(nomeAtributo, true);
+                return nomeAtributo; // Retorna o vencedor
+            }
+        }
+        throw new IllegalArgumentException("Elemento " + elemento.getNodeName() + " não possui ID (id, Id, ID).");
+    }
+
+    /**
+     * Localiza o elemento correto para assinar, ignorando wrappers de lote.
+     * Prioriza tags de evento (evt*) ou informações fiscais (inf*).
+     */
+    private Element descobrirElementoParaAssinar(Document doc) {
+        // Lista de tags que representam o "núcleo" do documento fiscal
+        String[] tagsDeInteresse = { "infNFe", "infCte", "infNFSe", "evtFechaEvPer", "evtInfoEmpregador", "Reinf" };
+        // Adicione outros "evt..." conforme necessário ou use lógica de prefixo
+
+        NodeList allElements = doc.getElementsByTagName("*");
+        for (int i = 0; i < allElements.getLength(); i++) {
+            Element el = (Element) allElements.item(i);
+            String tagName = el.getNodeName();
+
+            // Lógica Reinf: Busca tags que começam com 'evt' (Eventos) e têm ID
+            if (tagName.startsWith("evt")
+                    && (el.hasAttribute("Id") || el.hasAttribute("ID") || el.hasAttribute("id"))) {
+                return el;
+            }
+
+            // Lógica NFe/CTe: Busca infNFe/infCte
+            if ((tagName.startsWith("infNFe") || tagName.startsWith("infCte"))
+                    && (el.hasAttribute("Id") || el.hasAttribute("ID"))) {
+                return el;
+            }
+        }
+        throw new RuntimeException("Nenhum elemento assinável (evt*, inf*) encontrado no XML.");
     }
 
     public static void main(String[] args) {
