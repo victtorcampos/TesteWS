@@ -34,12 +34,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.*;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.*;
 import java.util.logging.*;
 import java.util.logging.Formatter;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * MainApplication - Utilitário de Teste para Comunicação SEFAZ e Assinatura
@@ -64,16 +67,22 @@ public class MainApplication implements ApplicationRunner {
         static final boolean USE_WINDOWS_KEYSTORE = false;
 
         // Configuração PFX (Arquivo)
-        static final String PFX_PATH = "C:/certificado/407.pfx";
+        static final String PFX_PATH = "C:/certificado/129.pfx";
         static final String PFX_PASS = "12345";
 
         // Configuração Windows-MY (Thumbprint/Hash SHA-1)
-        static final String WIN_THUMB = "C48514B5EDF842D34C322A1AAFAF8F6FDA3117A7";
+        static final String WIN_THUMB = "4B753DC532B07E78686A113F90AED1960074AEEA";
 
         // Endpoints e Arquivos
         static final String ENDPOINT_NFE_STATUS = "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeStatusServico4";
+        static final String ENDPOINT_CTE_STATUS = "https://cte.sefaz.mt.gov.br/ctews2/services/CTeStatusServicoV4";
+        static final String ENDPOINT_NFCE_STATUS = "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeStatusServico4";
+        static final String ENDPOINT_MDFE_STATUS = "https://mdfe.svrs.rs.gov.br/ws/MDFeStatusServico/MDFeStatusServico.asmx";
+        static final String ENDPOINT_NFSE_DFE = "https://adn.nfse.gov.br/adn/DFe";// "https://adn.nfse.gov.br/DFe";
+        static final String ENDPOINT_NFSE_CONTRIBUINTE_DFE = "https://adn.nfse.gov.br/contribuintes/DFe/000000000000001";
         static final String TRUSTSTORE_FILENAME = "cacerts_vcinf";
         static final String TRUSTSTORE_PASS = "changeit";
+
     }
 
     private static final Logger log = Logger.getLogger(MainApplication.class.getName());
@@ -107,8 +116,27 @@ public class MainApplication implements ApplicationRunner {
             }
 
             // 3. TESTAR CONEXÃO MTLS (Consumo de WebService)
-            log.info(">>> TESTE 1: Conexão mTLS (NfeStatusServico4) <<<");
-            WebServiceClient.testConnection(sslContext);
+            log.info(">>> TESTE 1.0: Conexão mTLS (Nfe StatusServico ) <<<");
+            WebServiceClient.testConsultaStatusNfe(sslContext);
+
+            log.info(">>> TESTE 1.1: Conexão mTLS (Cte StatusServico ) <<<");
+            WebServiceClient.testConsultaStatusCte(sslContext);
+
+            log.info(">>> TESTE 1.2: Conexão mTLS (Nfce StatusServico ) <<<");
+            WebServiceClient.testConsultaStatusNfce(sslContext);
+
+            log.info(">>> TESTE 1.3: Conexão mTLS (Nfce StatusServico ) <<<");
+            WebServiceClient.testConsultaStatusNfce(sslContext);
+
+            log.info(">>> TESTE 1.4: Conexão mTLS (Mdfe StatusServico ) <<<");
+            WebServiceClient.testConsultaStatusMdfe(sslContext);
+
+            log.info(">>> TESTE 1.5: Conexão mTLS (NFSe DFe ) <<<");
+            WebServiceClient.testNFSeDFe(sslContext);
+
+            log.info(">>> TESTE 1.6: Conexão mTLS (Consulta Reinf) <<<");
+            WebServiceClient.testReinfGet(sslContext,
+                    "https://reinf.receita.economia.gov.br/consulta/lotes/1.202512.744590511");
 
             // 4. TESTAR ASSINATURA XML
             log.info(">>> TESTE 2: Assinatura Digital de XMLs <<<");
@@ -175,6 +203,10 @@ public class MainApplication implements ApplicationRunner {
             // Captura Cadeia SEFAZ (SSL Handshake Grã-Fino)
             capturarCadeiaRemota("nfe.sefaz.mt.gov.br", ks);
             capturarCadeiaRemota("nfce.sefaz.mt.gov.br", ks);
+            capturarCadeiaRemota("cte.sefaz.mt.gov.br", ks);
+            capturarCadeiaRemota("adn.producaorestrita.nfse.gov.br", ks);
+            capturarCadeiaRemota("adn.nfse.gov.br", ks);
+            capturarCadeiaRemota("reinf.receita.economia.gov.br", ks);
 
             try (OutputStream os = Files.newOutputStream(trustFile.toPath())) {
                 ks.store(os, Config.TRUSTSTORE_PASS.toCharArray());
@@ -457,7 +489,10 @@ public class MainApplication implements ApplicationRunner {
 
     // --- CLIENTE WEB (TESTE) ---
     static class WebServiceClient {
-        static void testConnection(SSLContext ctx) {
+        record ProcessamentoResult(String ultNSU, int qtdDocumentos) {
+        }
+
+        static void testConsultaStatusNfe(SSLContext ctx) {
             try {
                 HttpClient client = HttpClient.newBuilder()
                         .sslContext(ctx)
@@ -467,7 +502,8 @@ public class MainApplication implements ApplicationRunner {
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create(Config.ENDPOINT_NFE_STATUS))
                         .header("Content-Type", "application/soap+xml; charset=utf-8")
-                        .POST(HttpRequest.BodyPublishers.ofString(FiscalDocumentRepository.getXml_setConsultaStatus(),
+                        .POST(HttpRequest.BodyPublishers.ofString(
+                                FiscalDocumentRepository.getXml_ConsultaStatusNfe(),
                                 StandardCharsets.UTF_8))
                         .build();
 
@@ -480,12 +516,182 @@ public class MainApplication implements ApplicationRunner {
                 log.severe("FALHA NA CONEXÃO WEBSERVICE: " + e.getMessage());
             }
         }
+
+        public static void testNFSeDFe(SSLContext sslContext) {
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .sslContext(sslContext)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(Config.ENDPOINT_NFSE_CONTRIBUINTE_DFE))
+                        .header("Accept", "application/json")
+                        .GET()
+                        .build();
+
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+
+                log.info("STATUS WEBSERVICE: HTTP " + res.statusCode());
+                if (res.statusCode() != 200) {
+                    log.warning("Resposta Diferente de 200: " + res.body());
+                }
+
+                String body = res.body();
+
+                try {
+                    String busca = "\"ArquivoXml\":\"";
+                    int inicio = body.indexOf(busca) + busca.length();
+                    int fim = body.indexOf("\"", inicio);
+                    String base64Gzip = body.substring(inicio, fim);
+
+                    // 2. Decode Base64
+                    byte[] comprimido = java.util.Base64.getDecoder().decode(base64Gzip);
+
+                    // 3. Decompressão GZIP (Nativo Java)
+                    try (java.util.zip.GZIPInputStream gis = new java.util.zip.GZIPInputStream(
+                            new java.io.ByteArrayInputStream(comprimido));
+                            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+
+                        byte[] buffer = new byte[1024];
+                        int len;
+                        while ((len = gis.read(buffer)) > 0) {
+                            baos.write(buffer, 0, len);
+                        }
+
+                        String xmlFinal = baos.toString("UTF-8");
+                        log.info("XML DECODIFICADO: " + xmlFinal);
+                    }
+                } catch (Exception e) {
+                    log.severe("Erro ao processar conteúdo: " + e.getMessage());
+                }
+            } catch (Exception e) {
+                log.severe("FALHA NA CONEXÃO WEBSERVICE: " + e.getMessage());
+            }
+        }
+
+        public static void testConsultaStatusMdfe(SSLContext sslContext) {
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .sslContext(sslContext)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(Config.ENDPOINT_MDFE_STATUS))
+                        .header("Content-Type", "application/soap+xml; charset=utf-8")
+                        .POST(HttpRequest.BodyPublishers.ofString(
+                                FiscalDocumentRepository.getXml_ConsultaStatusMdfe(),
+                                StandardCharsets.UTF_8))
+                        .build();
+
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                log.info("STATUS WEBSERVICE: HTTP " + res.statusCode());
+                if (res.statusCode() != 200) {
+                    log.warning("Resposta Diferente de 200: " + res.body());
+                }
+            } catch (Exception e) {
+                log.severe("FALHA NA CONEXÃO WEBSERVICE: " + e.getMessage());
+            }
+        }
+
+        public static void testConsultaStatusNfce(SSLContext sslContext) {
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .sslContext(sslContext)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(Config.ENDPOINT_NFCE_STATUS))
+                        .header("Content-Type", "application/soap+xml; charset=utf-8")
+                        .POST(HttpRequest.BodyPublishers.ofString(
+                                FiscalDocumentRepository.getXml_ConsultaStatusNfce(),
+                                StandardCharsets.UTF_8))
+                        .build();
+
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                log.info("STATUS WEBSERVICE: HTTP " + res.statusCode());
+                if (res.statusCode() != 200) {
+                    log.warning("Resposta Diferente de 200: " + res.body());
+                }
+            } catch (Exception e) {
+                log.severe("FALHA NA CONEXÃO WEBSERVICE: " + e.getMessage());
+            }
+        }
+
+        public static void testConsultaStatusCte(SSLContext sslContext) {
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .sslContext(sslContext)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(Config.ENDPOINT_CTE_STATUS))
+                        .header("Content-Type", "application/soap+xml; charset=utf-8")
+                        .POST(HttpRequest.BodyPublishers.ofString(
+                                FiscalDocumentRepository.getXml_ConsultaStatusCte(),
+                                StandardCharsets.UTF_8))
+                        .build();
+
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+                log.info("STATUS WEBSERVICE: HTTP " + res.statusCode());
+                if (res.statusCode() != 200) {
+                    log.warning("Resposta Diferente de 200: " + res.body());
+                }
+            } catch (Exception e) {
+                log.severe("FALHA NA CONEXÃO WEBSERVICE: " + e.getMessage());
+            }
+        }
+
+        static void testReinfGet(SSLContext ctx, String url) {
+            log.info("[GET] Testando Consulta Reinf: " + url);
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .sslContext(ctx)
+                        .connectTimeout(Duration.ofSeconds(15)) // Reinf as vezes é lento
+                        .build();
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build();
+
+                HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+
+                log.info("STATUS Reinf: HTTP " + res.statusCode());
+                log.info("Corpo Resposta (Snippet): " +
+                        res.body().substring(0, Math.min(res.body().length(), 200)).replace("\n", " "));
+
+            } catch (Exception e) {
+                log.severe("FALHA Reinf: " + e.getMessage());
+                // Dica de troubleshooting comum para Reinf
+                if (e.getMessage().contains("PKIX")) {
+                    log.warning(
+                            "DICA: Verifique se a cadeia 'reinf.receita.economia.gov.br' foi capturada no TrustStore.");
+                }
+            }
+        }
+
     }
 
     // --- REPOSITÓRIO (MOCKS) ---
     static class FiscalDocumentRepository {
-        static String getXml_setConsultaStatus() {
+        static String getXml_ConsultaStatusNfe() {
             return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
+        }
+
+        static String getXml_ConsultaStatusNfce() {
+            return "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
+        }
+
+        static String getXml_ConsultaStatusMdfe() {
+            return "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:wsdl=\"http://www.portalfiscal.inf.br/mdfe/wsdl/MDFeStatusServico\"><soap12:Header><wsdl:mdfeCabecMsg><wsdl:cUF>51</wsdl:cUF><wsdl:versaoDados>3.00</wsdl:versaoDados></wsdl:mdfeCabecMsg></soap12:Header><soap12:Body><wsdl:mdfeDadosMsg><consStatServMDFe xmlns=\"http://www.portalfiscal.inf.br/mdfe\" versao=\"3.00\"><tpAmb>1</tpAmb><xServ>STATUS</xServ></consStatServMDFe></wsdl:mdfeDadosMsg></soap12:Body></soap12:Envelope>";
+        }
+
+        static String getXml_ConsultaStatusCte() {
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><cteDadosMsg xmlns=\"http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServicoV4\"><consStatServCTe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/cte\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServCTe></cteDadosMsg></soap12:Body></soap12:Envelope>";
         }
 
         static String getXmlNFe() {
@@ -519,6 +725,54 @@ public class MainApplication implements ApplicationRunner {
         });
         handler.setLevel(Level.INFO);
         root.addHandler(handler);
+    }
+
+    // --- DICAS DE MIGRAÇÃO E INSTALAÇÃO DE CERTIFICADOS ---
+
+    // Migra um PFX legado (RC2/SHA1) para o formato moderno (AES-256/SHA-256).
+    // O JDK 11+ aplica a criptografia forte automaticamente ao salvar.
+
+    static void upgradePfx(String pathAntigo, String pathNovo, char[] password)
+            throws Exception {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (FileInputStream fis = new FileInputStream(pathAntigo)) {
+            ks.load(fis, password);
+        }
+        try (FileOutputStream fos = new FileOutputStream(pathNovo)) {
+            ks.store(fos, password);
+        }
+        log.info("PFX migrado com sucesso: " + pathNovo);
+    }
+
+    // DICA EXTRA (NÃO IMPLEMENTADA): Instalação de PFX diretamente no Windows-MY
+    /**
+     * Instala um PFX no repositório pessoal do usuário Windows (Windows-MY).
+     * Requer SunMSCAPI — funciona apenas em Windows.
+     */
+    static void instalarNoWindows(String pfxPath, String pfxPass) throws Exception {
+        // 1. Carrega o PFX do disco
+        KeyStore pfxStore = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(Paths.get(pfxPath))) {
+            pfxStore.load(in, pfxPass.toCharArray());
+        }
+
+        // 2. Abre o KeyStore do Windows (com permissão de escrita)
+        KeyStore winStore = KeyStore.getInstance("Windows-MY", "SunMSCAPI");
+        winStore.load(null, null);
+
+        // 3. Itera sobre o PFX e importa as chaves
+        Enumeration<String> aliases = pfxStore.aliases();
+        while (aliases.hasMoreElements()) {
+            String alias = aliases.nextElement();
+            if (pfxStore.isKeyEntry(alias)) {
+                Key key = pfxStore.getKey(alias, pfxPass.toCharArray());
+                Certificate[] chain = pfxStore.getCertificateChain(alias);
+
+                // Define no Windows (Alias original + sufixo para evitar colisão?)
+                winStore.setKeyEntry(alias, key, null, chain); // Senha null = proteção nativa
+                log.info("Certificado importado para Windows-MY: " + alias);
+            }
+        }
     }
 
 }
