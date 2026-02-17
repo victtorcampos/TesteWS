@@ -738,6 +738,7 @@ public class MainApplication implements ApplicationRunner {
         try (FileInputStream fis = new FileInputStream(pathAntigo)) {
             ks.load(fis, password);
         }
+        
         try (FileOutputStream fos = new FileOutputStream(pathNovo)) {
             ks.store(fos, password);
         }
