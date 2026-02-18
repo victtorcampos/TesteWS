@@ -57,8 +57,8 @@ import java.util.zip.GZIPOutputStream;
  * 
  * Uso: Apenas para ambiente de DESENVOLVIMENTO e TESTE.
  */
-@SpringBootApplication
-public class MainApplicationZero implements ApplicationRunner {
+// @SpringBootApplication
+public class MainApplicationZero /* implements ApplicationRunner */ {
 
     // --- CONFIGURAÇÃO CENTRALIZADA ---
     static class Config {
@@ -90,11 +90,11 @@ public class MainApplicationZero implements ApplicationRunner {
     public static void main(String[] args) {
         // Configura logger limpo antes de subir o Spring
         configureCleanLogger();
-        SpringApplication.run(MainApplicationZero.class, args);
+        //SpringApplication.run(MainApplicationZero.class, args);
     }
 
-    @Override
-    public void run(ApplicationArguments args) {
+    // @Override
+    public void run(/* ApplicationArguments args */) {
         log.info(">>> INICIANDO AMBIENTE DE TESTES SEFAZ/JAVA <<<");
 
         try {
@@ -738,7 +738,7 @@ public class MainApplicationZero implements ApplicationRunner {
         try (FileInputStream fis = new FileInputStream(pathAntigo)) {
             ks.load(fis, password);
         }
-        
+
         try (FileOutputStream fos = new FileOutputStream(pathNovo)) {
             ks.store(fos, password);
         }

@@ -634,6 +634,7 @@ public class MainApplicationThree implements ApplicationRunner {
         static String sign(String xmlBruto, KeyStore.PrivateKeyEntry keyEntry) throws Exception {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
+
             Document doc = dbf.newDocumentBuilder().parse(new InputSource(new StringReader(xmlBruto)));
 
             Element toSign = findElementToSign(doc);
@@ -682,6 +683,9 @@ public class MainApplicationThree implements ApplicationRunner {
          * digest.
          */
         static void verificarAssinatura(String xmlAssinado) throws Exception {
+            log.info("-".repeat(20));
+            log.info(xmlAssinado);
+            log.info("-".repeat(20));
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
             Document doc = dbf.newDocumentBuilder().parse(new InputSource(new StringReader(xmlAssinado)));
@@ -987,125 +991,31 @@ public class MainApplicationThree implements ApplicationRunner {
     static class FiscalDocumentRepository {
 
         static String getXml_ConsultaStatusNfe() {
-            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-                    + "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\">"
-                    + "<soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\">"
-                    + "<consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\">"
-                    + "<tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ>"
-                    + "</consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
         }
 
         static String getXml_ConsultaStatusNfce() {
-            return "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\">"
-                    + "<soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\">"
-                    + "<consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\">"
-                    + "<tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ>"
-                    + "</consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><nfeDadosMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></soap12:Body></soap12:Envelope>";
         }
 
         static String getXml_ConsultaStatusMdfe() {
-            return "<soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\""
-                    + " xmlns:wsdl=\"http://www.portalfiscal.inf.br/mdfe/wsdl/MDFeStatusServico\">"
-                    + "<soap12:Header><wsdl:mdfeCabecMsg><wsdl:cUF>51</wsdl:cUF>"
-                    + "<wsdl:versaoDados>3.00</wsdl:versaoDados></wsdl:mdfeCabecMsg></soap12:Header>"
-                    + "<soap12:Body><wsdl:mdfeDadosMsg>"
-                    + "<consStatServMDFe xmlns=\"http://www.portalfiscal.inf.br/mdfe\" versao=\"3.00\">"
-                    + "<tpAmb>1</tpAmb><xServ>STATUS</xServ>"
-                    + "</consStatServMDFe></wsdl:mdfeDadosMsg></soap12:Body></soap12:Envelope>";
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:wsdl=\"http://www.portalfiscal.inf.br/mdfe/wsdl/MDFeStatusServico\"><soap12:Header><wsdl:mdfeCabecMsg><wsdl:cUF>51</wsdl:cUF><wsdl:versaoDados>3.00</wsdl:versaoDados></wsdl:mdfeCabecMsg></soap12:Header><soap12:Body><wsdl:mdfeDadosMsg><consStatServMDFe xmlns=\"http://www.portalfiscal.inf.br/mdfe\" versao=\"3.00\"><tpAmb>1</tpAmb><xServ>STATUS</xServ></consStatServMDFe></wsdl:mdfeDadosMsg></soap12:Body></soap12:Envelope>";
         }
 
         static String getXml_ConsultaStatusCte() {
-            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-                    + "<soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
-                    + " xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
-                    + " xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\">"
-                    + "<soap12:Body><cteDadosMsg xmlns=\"http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServicoV4\">"
-                    + "<consStatServCTe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/cte\">"
-                    + "<tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ>"
-                    + "</consStatServCTe></cteDadosMsg></soap12:Body></soap12:Envelope>";
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap12=\"http://www.w3.org/2003/05/soap-envelope\"><soap12:Body><cteDadosMsg xmlns=\"http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServicoV4\"><consStatServCTe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/cte\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServCTe></cteDadosMsg></soap12:Body></soap12:Envelope>";
         }
 
         static String getXmlNFe() {
-            return "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">"
-                    + "<infNFe Id=\"NFe51260200053960793987559200000073941594056729\" versao=\"4.00\">"
-                    + "<ide><cUF>51</cUF><cNF>59405672</cNF><natOp>VENDA</natOp><mod>55</mod>"
-                    + "<serie>1</serie><nNF>100</nNF><dhEmi>2026-02-16T12:00:00-04:00</dhEmi>"
-                    + "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>1</tpImp>"
-                    + "<tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe>"
-                    + "<indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TESTE</verProc></ide>"
-                    + "<emit><CNPJ>00053960793987</CNPJ><xNome>EMITENTE TESTE</xNome>"
-                    + "<enderEmit><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro>"
-                    + "<cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderEmit>"
-                    + "<IE>000000000</IE><CRT>3</CRT></emit>"
-                    + "<dest><CNPJ>99999999000191</CNPJ>"
-                    + "<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>"
-                    + "<enderDest><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro>"
-                    + "<cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderDest>"
-                    + "<indIEDest>9</indIEDest></dest>"
-                    + "<det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO TESTE</xProd>"
-                    + "<NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom>"
-                    + "<vUnCom>100.00</vUnCom><vProd>100.00</vProd><cEANTrib>SEM GTIN</cEANTrib>"
-                    + "<uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>100.00</vUnTrib><indTot>1</indTot></prod>"
-                    + "<imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><modBC>3</modBC>"
-                    + "<vBC>100.00</vBC><pICMS>17.00</pICMS><vICMS>17.00</vICMS></ICMS00></ICMS>"
-                    + "<PIS><PISNT><CST>07</CST></PISNT></PIS>"
-                    + "<COFINS><COFINSNT><CST>07</CST></COFINSNT></COFINS></imposto></det>"
-                    + "<total><ICMSTot><vBC>100.00</vBC><vICMS>17.00</vICMS><vICMSDeson>0.00</vICMSDeson>"
-                    + "<vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST>"
-                    + "<vFCPSTRet>0.00</vFCPSTRet><vProd>100.00</vProd><vFrete>0.00</vFrete>"
-                    + "<vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI>"
-                    + "<vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS>"
-                    + "<vOutro>0.00</vOutro><vNF>117.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total>"
-                    + "<transp><modFrete>9</modFrete></transp>"
-                    + "<pag><detPag><tPag>90</tPag><vPag>117.00</vPag></detPag></pag>"
-                    + "</infNFe></NFe>";
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe51260200053960793987559200000073941594056729\" versao=\"4.00\"><ide><cUF>51</cUF><cNF>59405672</cNF><natOp>VENDA</natOp><mod>55</mod><serie>1</serie><nNF>100</nNF><dhEmi>2026-02-16T12:00:00-04:00</dhEmi><tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TESTE</verProc></ide><emit><CNPJ>00000000000000</CNPJ><xNome>EMITENTE TESTE</xNome><enderEmit><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderEmit><IE>000000000</IE><CRT>3</CRT></emit><dest><CNPJ>99999999000191</CNPJ><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><enderDest><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderDest><indIEDest>9</indIEDest></dest><det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO TESTE</xProd><NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>100.00</vUnCom><vProd>100.00</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>100.00</vUnTrib><indTot>1</indTot></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><modBC>3</modBC><vBC>100.00</vBC><pICMS>17.00</pICMS><vICMS>17.00</vICMS></ICMS00></ICMS><PIS><PISNT><CST>07</CST></PISNT></PIS><COFINS><COFINSNT><CST>07</CST></COFINSNT></COFINS></imposto></det><total><ICMSTot><vBC>100.00</vBC><vICMS>17.00</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>100.00</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro><vNF>117.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total><transp><modFrete>9</modFrete></transp><pag><detPag><tPag>90</tPag><vPag>117.00</vPag></detPag></pag></infNFe></NFe>";
         }
 
         static String getXmlNFCe() {
-            return "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\">"
-                    + "<infNFe Id=\"NFe51260134602686000102650020000085091230458530\" versao=\"4.00\">"
-                    + "<ide><cUF>51</cUF><cNF>23045853</cNF><natOp>VENDA</natOp><mod>65</mod>"
-                    + "<serie>1</serie><nNF>8509</nNF><dhEmi>2026-01-17T11:45:00-04:00</dhEmi>"
-                    + "<tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>4</tpImp>"
-                    + "<tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe>"
-                    + "<indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TESTE</verProc></ide>"
-                    + "<emit><CNPJ>34602686000102</CNPJ><xNome>EMITENTE NFCE</xNome>"
-                    + "<enderEmit><xLgr>RUA</xLgr><nro>1</nro><xBairro>B</xBairro>"
-                    + "<cMun>5107925</cMun><xMun>Sorriso</xMun><UF>MT</UF><CEP>78890000</CEP>"
-                    + "<fone>6635440000</fone></enderEmit><IE>140356347</IE><CRT>1</CRT></emit>"
-                    + "<det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO NFCe</xProd>"
-                    + "<NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom>"
-                    + "<vUnCom>10.00</vUnCom><vProd>10.00</vProd><cEANTrib>SEM GTIN</cEANTrib>"
-                    + "<uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>10.00</vUnTrib><indTot>1</indTot></prod>"
-                    + "<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto></det>"
-                    + "<total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vICMSDeson>0.00</vICMSDeson>"
-                    + "<vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST>"
-                    + "<vFCPSTRet>0.00</vFCPSTRet><vProd>10.00</vProd><vFrete>0.00</vFrete>"
-                    + "<vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI>"
-                    + "<vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS>"
-                    + "<vOutro>0.00</vOutro><vNF>10.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total>"
-                    + "<transp><modFrete>9</modFrete></transp>"
-                    + "<pag><detPag><tPag>01</tPag><vPag>10.00</vPag></detPag></pag>"
-                    + "</infNFe></NFe>";
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe51260134602686000102650020000085091230458530\" versao=\"4.00\"><ide><cUF>51</cUF><cNF>23045853</cNF><natOp>VENDA</natOp><mod>65</mod><serie>1</serie><nNF>8509</nNF><dhEmi>2026-01-17T11:45:00-04:00</dhEmi><tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>4</tpImp><tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TESTE</verProc></ide><emit><CNPJ>34602686000102</CNPJ><xNome>EMITENTE NFCE</xNome><enderEmit><xLgr>RUA</xLgr><nro>1</nro><xBairro>B</xBairro><cMun>5107925</cMun><xMun>Sorriso</xMun><UF>MT</UF><CEP>78890000</CEP><fone>6635440000</fone></enderEmit><IE>140356347</IE><CRT>1</CRT></emit><det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO NFCe</xProd><NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>10.00</vUnCom><vProd>10.00</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>10.00</vUnTrib><indTot>1</indTot></prod><imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto></det><total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>10.00</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro><vNF>10.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total><transp><modFrete>9</modFrete></transp><pag><detPag><tPag>01</tPag><vPag>10.00</vPag></detPag></pag></infNFe></NFe>";
         }
 
         static String getXmlEfdReinf() {
-            return "<Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/envioLoteEventosAssincrono/v1_00_00\">"
-                    + "<envioLoteEventos>"
-                    + "<ideContribuinte><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContribuinte>"
-                    + "<eventos><evento Id=\"ID1370425840000002026021217340600000\">"
-                    + "<Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/evtFechamento/v2_01_02\">"
-                    + "<evtFechaEvPer id=\"ID1370425840000002026021217340600000\">"
-                    + "<ideEvento><perApur>2026-01</perApur><tpAmb>1</tpAmb>"
-                    + "<procEmi>1</procEmi><verProc>2_01_02</verProc></ideEvento>"
-                    + "<ideContri><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContri>"
-                    + "<ideRespInf><nmResp>RESPONSAVEL</nmResp><cpfResp>00000000000</cpfResp>"
-                    + "<telefone>0000000000</telefone><email/></ideRespInf>"
-                    + "<infoFech><evtServTm>N</evtServTm><evtServPr>N</evtServPr>"
-                    + "<evtAssDespRec>N</evtAssDespRec><evtAssDespRep>N</evtAssDespRep>"
-                    + "<evtComProd>N</evtComProd><evtCPRB>N</evtCPRB><evtAquis>N</evtAquis></infoFech>"
-                    + "</evtFechaEvPer></Reinf></evento></eventos>"
-                    + "</envioLoteEventos></Reinf>";
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/envioLoteEventosAssincrono/v1_00_00\"><envioLoteEventos><ideContribuinte><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContribuinte><eventos><evento Id=\"ID1370425840000002026021217340600000\"><Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/evtFechamento/v2_01_02\"><evtFechaEvPer id=\"ID1370425840000002026021217340600000\"><ideEvento><perApur>2026-01</perApur><tpAmb>1</tpAmb><procEmi>1</procEmi><verProc>2_01_02</verProc></ideEvento><ideContri><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContri><ideRespInf><nmResp>RESPONSAVEL</nmResp><cpfResp>00000000000</cpfResp><telefone>0000000000</telefone><email /></ideRespInf><infoFech><evtServTm>N</evtServTm><evtServPr>N</evtServPr><evtAssDespRec>N</evtAssDespRec><evtAssDespRep>N</evtAssDespRep><evtComProd>N</evtComProd><evtCPRB>N</evtCPRB><evtAquis>N</evtAquis></infoFech></evtFechaEvPer></Reinf></evento></eventos></envioLoteEventos></Reinf>";
         }
     }
 

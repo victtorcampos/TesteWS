@@ -9,6 +9,16 @@
             "projectName": "demo-teste-ws",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MainApplicationThree<demo-teste-ws>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "tech.vcinf.teste.ws.MainApplicationThree",
+            "projectName": "demo-teste-ws",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
