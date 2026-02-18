@@ -47,7 +47,7 @@ import java.util.zip.GZIPOutputStream;
 /**
  * MainApplication - Utilitário de Teste para Comunicação SEFAZ e Assinatura
  * XML.
- * 
+ * Verão 0.1
  * Funcionalidades:
  * 1. Geração Automática de TrustStore (Cadeias ICP-Brasil e Servidores SEFAZ)
  * 2. Autenticação mTLS (Windows-MY ou Arquivo PFX)

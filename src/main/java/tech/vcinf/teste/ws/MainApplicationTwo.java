@@ -61,7 +61,7 @@ import java.util.zip.GZIPOutputStream;
 // @SpringBootApplication
 public class MainApplicationTwo /* implements ApplicationRunner */ {
 
-    private static final Logger log = Logger.getLogger(MainApplication.class.getName());
+    private static final Logger log = Logger.getLogger(MainApplicationOne.class.getName());
 
     // =========================================================================
     // --- Entrypoints
@@ -69,7 +69,7 @@ public class MainApplicationTwo /* implements ApplicationRunner */ {
 
     public static void main(String[] args) {
         configureCleanLogger();
-        SpringApplication.run(MainApplication.class, args);
+        SpringApplication.run(MainApplicationOne.class, args);
     }
 
     //@Override

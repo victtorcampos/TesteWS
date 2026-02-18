@@ -725,7 +725,7 @@ public class MainApplicationThree implements ApplicationRunner {
                 default -> tipo.toLowerCase() + ".xsd";
             };
 
-            InputStream xsdStream = MainApplication.class.getResourceAsStream("/xsd/" + nomeXsd);
+            InputStream xsdStream = MainApplicationOne.class.getResourceAsStream("/xsd/" + nomeXsd);
             if (xsdStream == null) {
                 log.warning("[XSD] Schema não encontrado: /xsd/" + nomeXsd + " — validação ignorada.");
                 return;
