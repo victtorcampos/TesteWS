@@ -137,6 +137,7 @@ public class MainApplicationThree implements ApplicationRunner {
                     "https://reinf.receita.economia.gov.br/consulta/lotes/1.202512.744590511");
 
             log.info(">>> TESTE 2: Assinatura Digital de XMLs <<<");
+
             processarAssinatura("NFe", FiscalDocumentRepository.getXmlNFe(), keyEntry);
             processarAssinatura("NFCe", FiscalDocumentRepository.getXmlNFCe(), keyEntry);
             processarAssinatura("Reinf", FiscalDocumentRepository.getXmlEfdReinf(), keyEntry);
@@ -645,7 +646,7 @@ public class MainApplicationThree implements ApplicationRunner {
             String signatureMethod;
             if (toSign.getNodeName().startsWith("evt") || toSign.getNodeName().startsWith("eSocial")) {
                 digestMethod = DigestMethod.SHA256;
-                signatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+                signatureMethod = SignatureMethod.RSA_SHA256;
             } else {
                 digestMethod = DigestMethod.SHA1;
                 signatureMethod = SignatureMethod.RSA_SHA1;
@@ -678,39 +679,164 @@ public class MainApplicationThree implements ApplicationRunner {
 
         /**
          * Verifica matematicamente a assinatura XML gerada.
-         * Extrai a chave pública do <X509Certificate> embutido no <KeyInfo>.
-         * Em caso de falha, discrimina entre erro no valor da assinatura e erro no
-         * digest.
+         *
+         * Corrige dois problemas identificados em produção:
+         *
+         * PROBLEMA 1 — NFe/NFCe — MarshalException "forbidden to use rsa-sha1"
+         * O modo de validação segura bloqueava SHA-1 antes mesmo do unmarshal.
+         * Causa: property name incorreta ("org.apache.jcp..." vs "org.jcp...").
+         * Fix: usar a property correta do provedor DOM nativo do JDK.
+         *
+         * PROBLEMA 2 — Reinf — URIReferenceException "Cannot resolve element with ID"
+         * O documento Reinf usa atributo "id" (minúsculo) no elemento assinado.
+         * O DOMValidateContext só resolve URI "#ID..." via getElementById(), que
+         * exige que o atributo esteja registrado como ID-type no DOM.
+         * Fix: varrer todos os elementos do documento e registrar explicitamente
+         * os atributos "Id", "id" e "ID" via setIdAttribute() antes de validar.
          */
         static void verificarAssinatura(String xmlAssinado) throws Exception {
-            log.info("-".repeat(20));
-            log.info(xmlAssinado);
-            log.info("-".repeat(20));
+
+            // -------- 1. Parse --------
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setNamespaceAware(true);
-            Document doc = dbf.newDocumentBuilder().parse(new InputSource(new StringReader(xmlAssinado)));
+            Document doc = dbf.newDocumentBuilder()
+                    .parse(new InputSource(new StringReader(xmlAssinado)));
 
+            // -------- 2. Localizar <Signature> --------
             NodeList sigNodes = doc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
             if (sigNodes.getLength() == 0)
                 throw new RuntimeException("Elemento <Signature> não encontrado no XML.");
 
+            // -------- 3. FIX PROBLEMA 2: registrar todos os atributos ID no DOM --------
+            //
+            // O ResolverFragment do Apache Santuario resolve "#ID..." via getElementById().
+            // Esse método só funciona se o atributo foi declarado como ID-type no DOM —
+            // o que normalmente acontece via DTD, mas não ocorre em documentos fiscais.
+            //
+            // Documentos NFe usam Id="NFe..." (com maiúscula)
+            // Documentos Reinf usam id="ID..." (com minúscula)
+            //
+            // Solução: varrer todos os Element do documento e registrar qualquer variante.
+            registrarAtributosId(doc);
+
+            // -------- 4. Detectar algoritmos para logar (informativo) --------
+            String signatureAlgo = detectarAlgoritmo(doc, "SignatureMethod");
+            String digestAlgo = detectarAlgoritmo(doc, "DigestMethod");
+
+            // -------- 5. Criar contexto de validação --------
+            DOMValidateContext valCtx = new DOMValidateContext(
+                    new X509KeySelector(), sigNodes.item(0));
+
+            // FIX PROBLEMA 1: property correta do provedor DOM nativo do JDK.
+            //
+            // Errado → "org.apache.jcp.xml.dsig.secureValidation" (ignorada
+            // silenciosamente)
+            // Correto → "org.jcp.xml.dsig.secureValidation" (reconhecida pelo
+            // DOMSignedInfo)
+            //
+            // Com o nome errado a flag nunca chegava ao DOMSignedInfo e o SHA-1
+            // era bloqueado no unmarshal com MarshalException antes de qualquer validação.
+            valCtx.setProperty("org.jcp.xml.dsig.secureValidation", Boolean.FALSE);
+
+            // -------- 6. Unmarshal + Validação --------
             XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
-            DOMValidateContext valCtx = new DOMValidateContext(new X509KeySelector(), sigNodes.item(0));
             XMLSignature sig = factory.unmarshalXMLSignature(valCtx);
 
             if (sig.validate(valCtx)) {
-                log.info("[ASSINATURA] Verificação OK — assinatura matematicamente válida.");
+                log.info("[ASSINATURA] ✅ VÁLIDA");
+                log.info("  • Algoritmo Assinatura : " + formatarAlgoritmo(signatureAlgo));
+                log.info("  • Algoritmo Digest     : " + formatarAlgoritmo(digestAlgo));
+
+                if (signatureAlgo.contains("sha1") || digestAlgo.contains("sha1"))
+                    log.warning("[ASSINATURA] ⚠️ SHA-1 detectado (padrão legado SEFAZ NFe/CTe) — " +
+                            "considere migrar para SHA-256 quando o ambiente permitir.");
                 return;
             }
 
+            // -------- 7. Diagnóstico detalhado em caso de falha --------
+            log.severe("[ASSINATURA] ❌ INVÁLIDA");
+            log.severe("  • Algoritmo Assinatura : " + formatarAlgoritmo(signatureAlgo));
+            log.severe("  • Algoritmo Digest     : " + formatarAlgoritmo(digestAlgo));
+
             boolean svOk = sig.getSignatureValue().validate(valCtx);
-            log.severe("[ASSINATURA] FALHA — valorAssinatura válido=" + svOk);
+            log.severe("  • SignatureValue válido : " + svOk
+                    + (svOk ? "" : " → chave/certificado incompatível com o conteúdo assinado"));
+
             for (Object refObj : sig.getSignedInfo().getReferences()) {
                 javax.xml.crypto.dsig.Reference r = (javax.xml.crypto.dsig.Reference) refObj;
-                log.severe("[ASSINATURA] Reference URI=" + r.getURI()
-                        + " digest válido=" + r.validate(valCtx));
+                boolean refOk = r.validate(valCtx);
+                log.severe("  • Reference URI=" + r.getURI()
+                        + " | digest válido=" + refOk
+                        + (refOk ? "" : " → XML foi modificado após a assinatura"));
             }
-            throw new RuntimeException("Assinatura XML inválida.");
+
+            throw new RuntimeException("Assinatura XML inválida — veja diagnóstico acima.");
+        }
+
+        /**
+         * Registra explicitamente como ID-type no DOM todos os atributos nomeados
+         * "Id", "id" ou "ID" encontrados em qualquer Element do documento.
+         *
+         * Necessário porque getElementById() — usado internamente pelo ResolverFragment
+         * ao resolver URI "#ID..." — só funciona se o atributo foi declarado via DTD
+         * ou via setIdAttribute(). Documentos fiscais não carregam DTD.
+         *
+         * Documentos NFe: atributo "Id" (ex: Id="NFe51260...")
+         * Documentos Reinf: atributo "id" (ex: id="ID137...")
+         */
+        private static void registrarAtributosId(Document doc) {
+            NodeList todos = doc.getElementsByTagName("*");
+            for (int i = 0; i < todos.getLength(); i++) {
+                Element el = (Element) todos.item(i);
+                for (String nome : new String[] { "Id", "id", "ID" }) {
+                    if (el.hasAttribute(nome)) {
+                        el.setIdAttribute(nome, true);
+                        break; // cada elemento tem no máximo um atributo ID
+                    }
+                }
+            }
+        }
+
+        /**
+         * Detecta o algoritmo usado na assinatura XML.
+         * 
+         * @param doc         Documento DOM parseado
+         * @param elementName "SignatureMethod" ou "DigestMethod"
+         * @return URL do algoritmo (ex: "http://www.w3.org/2000/09/xmldsig#rsa-sha1")
+         */
+        static String detectarAlgoritmo(Document doc, String elementName) {
+            NodeList nodes = doc.getElementsByTagName(elementName);
+            if (nodes.getLength() > 0) {
+                org.w3c.dom.NamedNodeMap attrs = nodes.item(0).getAttributes();
+                if (attrs != null) {
+                    org.w3c.dom.Node algo = attrs.getNamedItem("Algorithm");
+                    if (algo != null) {
+                        return algo.getNodeValue();
+                    }
+                }
+            }
+            return "DESCONHECIDO";
+        }
+
+        /**
+         * Formata a URL do algoritmo para leitura humana.
+         * Exemplos:
+         * http://www.w3.org/2000/09/xmldsig#rsa-sha1 → RSA-SHA1
+         * http://www.w3.org/2001/04/xmldsig-more#rsa-sha256 → RSA-SHA256
+         * http://www.w3.org/2000/09/xmldsig#sha1 → SHA1
+         */
+        static String formatarAlgoritmo(String algoritmoUrl) {
+            if (algoritmoUrl == null || algoritmoUrl.isEmpty() || algoritmoUrl.equals("DESCONHECIDO")) {
+                return "DESCONHECIDO";
+            }
+
+            // Extrair a parte após o '#'
+            String[] partes = algoritmoUrl.split("#");
+            if (partes.length > 1) {
+                return partes[1].toUpperCase();
+            }
+
+            return algoritmoUrl;
         }
 
         /**
@@ -955,7 +1081,7 @@ public class MainApplicationThree implements ApplicationRunner {
                         int len;
                         while ((len = gis.read(buf)) > 0)
                             baos.write(buf, 0, len);
-                        log.info("XML DECODIFICADO: " + baos.toString(StandardCharsets.UTF_8));
+                        //log.info("XML DECODIFICADO: " + baos.toString(StandardCharsets.UTF_8));
                     }
                 } catch (Exception e) {
                     log.severe("Erro ao processar conteúdo NFSe: " + e.getMessage());
@@ -1007,7 +1133,7 @@ public class MainApplicationThree implements ApplicationRunner {
         }
 
         static String getXmlNFe() {
-            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe51260200053960793987559200000073941594056729\" versao=\"4.00\"><ide><cUF>51</cUF><cNF>59405672</cNF><natOp>VENDA</natOp><mod>55</mod><serie>1</serie><nNF>100</nNF><dhEmi>2026-02-16T12:00:00-04:00</dhEmi><tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TESTE</verProc></ide><emit><CNPJ>00000000000000</CNPJ><xNome>EMITENTE TESTE</xNome><enderEmit><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderEmit><IE>000000000</IE><CRT>3</CRT></emit><dest><CNPJ>99999999000191</CNPJ><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><enderDest><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderDest><indIEDest>9</indIEDest></dest><det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO TESTE</xProd><NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>100.00</vUnCom><vProd>100.00</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>100.00</vUnTrib><indTot>1</indTot></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><modBC>3</modBC><vBC>100.00</vBC><pICMS>17.00</pICMS><vICMS>17.00</vICMS></ICMS00></ICMS><PIS><PISNT><CST>07</CST></PISNT></PIS><COFINS><COFINSNT><CST>07</CST></COFINSNT></COFINS></imposto></det><total><ICMSTot><vBC>100.00</vBC><vICMS>17.00</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>100.00</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro><vNF>117.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total><transp><modFrete>9</modFrete></transp><pag><detPag><tPag>90</tPag><vPag>117.00</vPag></detPag></pag></infNFe></NFe>";
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe51260201293422000165550010000001001594056720\" versao=\"4.00\"><ide><cUF>51</cUF><cNF>59405672</cNF><natOp>VENDA</natOp><mod>55</mod><serie>1</serie><nNF>100</nNF><dhEmi>2026-02-16T12:00:00-04:00</dhEmi><tpNF>1</tpNF><idDest>1</idDest><cMunFG>5107925</cMunFG><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>1</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>1.0</verProc></ide><emit><CNPJ>01293422000165</CNPJ><xNome>NOME REAL DA EMPRESA LTDA</xNome><enderEmit><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderEmit><IE>132630435</IE><CRT>3</CRT></emit><dest><CNPJ>24879861000150</CNPJ><xNome>NOME DO CLIENTE</xNome><enderDest><xLgr>RUA TESTE</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>5107925</cMun><xMun>SORRISO</xMun><UF>MT</UF><CEP>78890000</CEP></enderDest><indIEDest>1</indIEDest><IE>130689645</IE></dest><det nItem=\"1\"><prod><cProd>1</cProd><cEAN>SEM GTIN</cEAN><xProd>PRODUTO TESTE</xProd><NCM>21069090</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>100.00</vUnCom><vProd>100.00</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>1.0000</qTrib><vUnTrib>100.00</vUnTrib><indTot>1</indTot></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><modBC>3</modBC><vBC>100.00</vBC><pICMS>17.00</pICMS><vICMS>17.00</vICMS></ICMS00></ICMS><PIS><PISNT><CST>07</CST></PISNT></PIS><COFINS><COFINSNT><CST>07</CST></COFINSNT></COFINS></imposto></det><total><ICMSTot><vBC>100.00</vBC><vICMS>17.00</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>100.00</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro><vNF>100.00</vNF><vTotTrib>0.00</vTotTrib></ICMSTot></total><transp><modFrete>9</modFrete></transp><pag><detPag><tPag>01</tPag><vPag>100.00</vPag></detPag></pag></infNFe></NFe>";
         }
 
         static String getXmlNFCe() {
@@ -1015,7 +1141,7 @@ public class MainApplicationThree implements ApplicationRunner {
         }
 
         static String getXmlEfdReinf() {
-            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/envioLoteEventosAssincrono/v1_00_00\"><envioLoteEventos><ideContribuinte><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContribuinte><eventos><evento Id=\"ID1370425840000002026021217340600000\"><Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/evtFechamento/v2_01_02\"><evtFechaEvPer id=\"ID1370425840000002026021217340600000\"><ideEvento><perApur>2026-01</perApur><tpAmb>1</tpAmb><procEmi>1</procEmi><verProc>2_01_02</verProc></ideEvento><ideContri><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContri><ideRespInf><nmResp>RESPONSAVEL</nmResp><cpfResp>00000000000</cpfResp><telefone>0000000000</telefone><email /></ideRespInf><infoFech><evtServTm>N</evtServTm><evtServPr>N</evtServPr><evtAssDespRec>N</evtAssDespRec><evtAssDespRep>N</evtAssDespRep><evtComProd>N</evtComProd><evtCPRB>N</evtCPRB><evtAquis>N</evtAquis></infoFech></evtFechaEvPer></Reinf></evento></eventos></envioLoteEventos></Reinf>";
+            return "<Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/envioLoteEventosAssincrono/v1_00_00\"><envioLoteEventos><ideContribuinte><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContribuinte><eventos><evento Id=\"ID1370425840000002026021217340600000\"><Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/evtFechamento/v2_01_02\"><evtFechaEvPer id=\"ID1370425840000002026021217340600000\"><ideEvento><perApur>2026-01</perApur><tpAmb>1</tpAmb><procEmi>1</procEmi><verProc>2_01_02</verProc></ideEvento><ideContri><tpInsc>1</tpInsc><nrInsc>37042584</nrInsc></ideContri><ideRespInf><nmResp>JURACI JOREGE CAMICIA</nmResp><cpfResp>40770893953</cpfResp><telefone>6635441504</telefone><email/></ideRespInf><infoFech><evtServTm>N</evtServTm><evtServPr>N</evtServPr><evtAssDespRec>N</evtAssDespRec><evtAssDespRep>N</evtAssDespRep><evtComProd>N</evtComProd><evtCPRB>N</evtCPRB><evtAquis>N</evtAquis></infoFech></evtFechaEvPer></Reinf></evento></eventos></envioLoteEventos></Reinf>";
         }
     }
 
