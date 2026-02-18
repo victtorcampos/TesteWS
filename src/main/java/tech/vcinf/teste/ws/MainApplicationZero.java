@@ -58,7 +58,7 @@ import java.util.zip.GZIPOutputStream;
  * Uso: Apenas para ambiente de DESENVOLVIMENTO e TESTE.
  */
 @SpringBootApplication
-public class MainApplication implements ApplicationRunner {
+public class MainApplicationZero implements ApplicationRunner {
 
     // --- CONFIGURAÇÃO CENTRALIZADA ---
     static class Config {
@@ -85,12 +85,12 @@ public class MainApplication implements ApplicationRunner {
 
     }
 
-    private static final Logger log = Logger.getLogger(MainApplication.class.getName());
+    private static final Logger log = Logger.getLogger(MainApplicationZero.class.getName());
 
     public static void main(String[] args) {
         // Configura logger limpo antes de subir o Spring
         configureCleanLogger();
-        SpringApplication.run(MainApplication.class, args);
+        SpringApplication.run(MainApplicationZero.class, args);
     }
 
     @Override
